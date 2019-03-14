@@ -103,18 +103,28 @@ int main() {
             car_s = end_path_s;
           }
 
-          if ((car_d < (2+4*lane)*1.5) && (car_d > (2+4*lane)*0.5)) {
+          if ((car_d < (2+4*lane+1)) && (car_d > (2+4*lane-1))) {
             changing_lane = false;
           }
 
           bool too_close = false;
-          bool left_clear = false;
-          bool right_clear = false;
+          bool left_clear_up = true;
+          bool left_clear_down = true;
+          bool right_clear_up = true;
+          bool right_clear_down = true;
           
 
           double transition_vel = ref_vel;
-          double closest_car = std::numeric_limits<double>::max();
-          
+          double closest_car_up = std::numeric_limits<double>::max();
+          double closest_car_left_down = std::numeric_limits<double>::min();
+          double closest_car_left_up = std::numeric_limits<double>::max();
+          double closest_car_right_down = std::numeric_limits<double>::min();
+          double closest_car_right_up = std::numeric_limits<double>::max();
+
+          double furthest_car_s = std::numeric_limits<double>::min();
+          double fastest_lane = lane;
+          vector<bool> empty_lanes = {true, true, true};
+
           //find ref_vel to use
           for (unsigned int i = 0; i < sensor_fusion.size(); ++i) {
             
@@ -129,68 +139,115 @@ int main() {
 
             double check_speed_ms = check_speed*1609.0/3600.0;
 
-            if (d < (2+4*lane+2) && d > (2+4*lane-2)) {
-            
+            if (car_s < check_car_s && (check_car_s-car_s)<100 && d > 0 && d < 12) {
+              empty_lanes[floor(d/4)] = false;
+              if (check_car_s > furthest_car_s) {
+                furthest_car_s = check_car_s;
+                if (d < 4 && d >= 0) {
+                  fastest_lane = 0;          
+                } else if (d >= 4 && d <8) {
+                  fastest_lane = 1;
+                } else if (d >= 8 && d <= 12) {
+                  fastest_lane = 2;
+                }
+              } 
+            }  
+            // Current lane
+            if (d < (2+4*lane+3) && d > (2+4*lane-3)) {
+              
               if ((car_s < check_car_s) && (check_car_s-car_s)< 30) {
 
-                // If car is too close do some action
-                //ref_vel = check_speed *((1609)/3600.0)*0.95;
-                
-                too_close = true;
-                transition_vel = check_speed_ms;
-                if (closest_car > check_car_s) {
-                  closest_car = check_car_s;
+                if (closest_car_up > check_car_s) {
+                  closest_car_up = check_car_s;
+                  // If car is too close do some action      
+                  too_close = true;
+                  transition_vel = check_speed_ms;
                 }
               }
+              // Right lane
             } else if  (d > (2+4*lane+2) && d < (2+4*lane+6)) {
               
-              bool condition_prev_cars = ((car_s > check_car_s) && ((car_s+ref_vel*2)  > (check_car_s+check_speed_ms*2+10)));
-              bool condition_ahead_cars = ((car_s < check_car_s) && (check_car_s-car_s)> 45 && (check_speed_ms > ref_vel*1.2));  
+              bool condition_prev_cars = ((car_s > check_car_s) && ((car_s+ref_vel*2)  < (check_car_s+check_speed_ms*2+35)));
+              bool condition_ahead_cars = ((car_s < check_car_s) && (check_car_s-car_s) < 30 && (check_speed_ms < ref_vel*1.2));  
               
-              if (condition_prev_cars || condition_ahead_cars) {
-                // Clear right lane for lane transition
-                right_clear = true;
-                //std::cout << "Changing to right lane!"<< std::endl;
-              } else {
-                // Clear right lane for lane transition
-                right_clear = false;
+              if (condition_prev_cars) {
+                if (closest_car_right_down < check_car_s) {
+                  // Clear right lane for lane transition
+                  right_clear_down = false;
+                  closest_car_right_down = check_car_s;
+                }
               }
+              if (condition_ahead_cars) {
+                if (closest_car_right_up > check_car_s) {
+                  // Clear right lane for lane transition
+                  right_clear_up = false;
+                  closest_car_right_up = check_car_s;
+                }
+              }
+              // Left lane
             } else if  (d < (2+4*lane-2) && d > (2+4*lane-6)) {
               
-              bool condition_prev_cars = ((car_s > check_car_s) && ((car_s+ref_vel*2)  > (check_car_s+check_speed_ms*2+10)));
-              bool condition_ahead_cars = ((car_s < check_car_s) && (check_car_s-car_s)> 45) && (check_speed_ms > ref_vel*1.2);
+              bool condition_prev_cars = ((car_s > check_car_s) && ((car_s+ref_vel*2)  < (check_car_s+check_speed_ms*2+35)));
+              bool condition_ahead_cars = ((car_s < check_car_s) && (check_car_s-car_s) < 30) && (check_speed_ms < ref_vel*1.2);
               
-              if (condition_prev_cars || condition_ahead_cars) {
-                // Clear left lane for lane transition
-                left_clear = true;
-                //std::cout << "Changing to left lane!" <<std::endl;
-              } else {
-                // Clear right lane for lane transition
-                left_clear = false;
+              if (condition_prev_cars) {
+                if (closest_car_left_down < check_car_s) {
+                  // Clear left lane for lane transition
+                  left_clear_down = false;
+                  closest_car_left_down = check_car_s;
+                }
+              }
+              if (condition_ahead_cars) {
+                if (closest_car_left_up > check_car_s) {
+                  // Clear left lane for lane transition
+                  left_clear_up = false;
+                  closest_car_left_up = check_car_s;
+                }
               }
             }
           }
 
           if (too_close)
           {
-            //(ref_vel - transition_vel)/dt < 10
-            if (abs(closest_car - car_s) < 5) {
+            if (abs(closest_car_up - car_s) < 5) {
               ref_vel -= 0.16;
             } else {
-              ref_vel -= ((ref_vel - transition_vel)*0.02/6.0);
-            }
-            
-        
-            if (lane>0 && left_clear && ~changing_lane) {
-              lane -= 1;
-              changing_lane = true;
-            } else if (lane<2 && right_clear && ~changing_lane) {
-              changing_lane = true;
-              lane += 1;
+              ref_vel -= ((ref_vel - transition_vel)*0.02/4.0);
             }
           } else if (ref_vel < 22.12375) {
-            ref_vel += 0.16;
+            ref_vel += 0.10;
           }
+
+          if (empty_lanes[lane]==true) {
+            fastest_lane = lane;
+          } else {
+            for (unsigned int i = 0; i < empty_lanes.size(); ++i) {
+                if (empty_lanes[i]==true) {
+                  fastest_lane = i;
+                  break;
+                }
+            }
+          } 
+          
+          if (too_close || lane != fastest_lane) {
+            if (fastest_lane < lane) {       
+                if (lane>0 && left_clear_up && left_clear_down && !changing_lane) {
+                  lane -= 1;
+                  changing_lane = true;
+                } else if (lane<2 && right_clear_up && right_clear_down && !changing_lane) {
+                  lane += 1;
+                  changing_lane = true;
+                }
+              } else {
+                if (lane<2 && right_clear_up && right_clear_down && !changing_lane) {
+                  lane += 1;
+                  changing_lane = true;
+                } else if (lane>0 && left_clear_up && left_clear_down && !changing_lane) {
+                  lane -= 1;
+                  changing_lane = true;
+                } 
+              }
+            }
 
 
 
