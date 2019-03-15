@@ -67,7 +67,9 @@ int main() {
   
   PathPlanning planner;
 
-  h.onMessage([&planner,&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+  Car car = {.x = 0.0, .y = 0.0, .s = 0.0, .d = 0.0, .yaw = 0.0, .speed = 0.0, .speed_ref = 0.0};
+
+  h.onMessage([&planner, &car, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
@@ -87,7 +89,7 @@ int main() {
           // j[1] is the data JSON object
           
           // Main car's localization Data
-          Car car = {.x = j[1]["x"], .y = j[1]["y"], .s = j[1]["s"], .d = j[1]["d"], .yaw = j[1]["yaw"], .speed = j[1]["speed"]};
+          car = {.x = j[1]["x"], .y = j[1]["y"], .s = j[1]["s"], .d = j[1]["d"], .yaw = j[1]["yaw"], .speed = j[1]["speed"], .speed_ref = car.speed_ref};
 
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
