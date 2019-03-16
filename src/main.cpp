@@ -12,6 +12,8 @@
 using nlohmann::json;
 using std::string;
 using std::vector;
+using std::cout;
+using std::endl;
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -91,6 +93,8 @@ int main() {
           // Main car's localization Data
           car = {.x = j[1]["x"], .y = j[1]["y"], .s = j[1]["s"], .d = j[1]["d"], .yaw = j[1]["yaw"], .speed = j[1]["speed"], .speed_ref = car.speed_ref};
 
+          //cout << "s: " << car.s << " , d: " << car.d << " , speed: " << car.speed << endl;
+
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
           auto previous_path_y = j[1]["previous_path_y"];
@@ -111,17 +115,21 @@ int main() {
           // Behavior selection
           planner.behaviorSelection(car, sensor_fusion, prev_size);
 
+
+          
           // Trajectory generation
           vector<vector<double>> path_vals = planner.trajectoryGeneration(car, previous_path_x, \
-                                                      previous_path_y, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                                                      previous_path_y, map_waypoints_s, map_waypoints_x, map_waypoints_y); //2.75, 5.25 - 6.75 , 9.25
 
+          
+          //vector<vector<double>> path_vals = {{0.0},{0.0}};
           json msgJson;
-
+          
           msgJson["next_x"] = path_vals[0];
           msgJson["next_y"] = path_vals[1];
 
           auto msg = "42[\"control\","+ msgJson.dump()+"]";
-
+    
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }  // end "telemetry" if
       } else {

@@ -38,7 +38,7 @@ class PathPlanning {
          * @param changing_lane State of lane transition behavior 
          * @param ref_vel Reference velocity to control car motion in [m/s]
          */ 
-        PathPlanning(): lane(1), changing_lane(false) {}
+        PathPlanning(): lane(1), changing_lane(false), collision_direction(0), collision_timer(0) {}
 
         // Destructor 
         ~PathPlanning() {}
@@ -72,6 +72,10 @@ class PathPlanning {
         int lane;
         // Lane change state. True when the car is changing lane. False when it is not or has completed transition
         bool changing_lane;
+        // Set to +1 when obstacle is present in the right lane, -1 in the left lane. Requests lane transition or slowing down. 
+        // Otherwise the value will be set to 0
+        int collision_direction;
+        int collision_timer;
 };
 
 #endif // PATH_PLANNING_H_
