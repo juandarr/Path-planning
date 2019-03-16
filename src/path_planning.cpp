@@ -67,8 +67,9 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
     // Transition speed when the car ahead is slow and we need to gradually reduce speed
     double transition_vel = car.speed_ref;
     
-    // Vector too store the closest cars from the s value of the car ahead, in each of the index lanes 0:left, 1:center and 2:right
+    // Vector to store the sa value of closest cars from the s value of the car ahead. The indexes correspond to the respective lane 0:left, 1:center and 2:right
     vector<double> closest_s_lanes = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
+
     // Set current lane as fastest lane
     int fastest_lane = lane;
     
@@ -79,7 +80,10 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
      * the fastest_lane value and define that lane as the preferred direction during behavior selection
      */ 
     for (unsigned int i = 0; i < sensor_fusion.size(); ++i) {
-        
+
+        // Identifier
+        int id = sensor_fusion[i][0];
+
         // d value of vehicle with index i
         float d = sensor_fusion[i][6];
 
@@ -99,20 +103,23 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
         double check_speed_ms = check_speed*1609.0/3600.0;
 
         /**
-         * Detects closest s car position to the vehicle in each lane. We are interested in those closest cars where
-         * their s position is bigger than the s position of the autonomous vehicle.
+         * Detects closest s car position and difference of d value to the vehicle in each lane. We are interested in the closest cars with an 
+         * s value larger than the s of the autonomous vehicle, in each lane.
          */ 
         if (car.s < check_car_s && (check_car_s-car.s)<100 && d > 0 && d < 12) {
             int lane_temp = floor(d/4);
             if (check_car_s < closest_s_lanes[lane_temp]) {
                 closest_s_lanes[lane_temp] = check_car_s;
+                if ((collision_direction != 0) && (lane_temp == (lane-collision_direction)) && (id == id_car_collision)) {
+                    d_car_collision = d;
+                }
             } 
         }  
 
         // Identify whether cars ahead in the current lane are too close
         if (d > (2+4*lane-2) && d < (2+4*lane+2)) {
             // Car is ahead the autonomous vehicles is the distances is less than 30 Meters
-            if ((car.s < check_car_s) && (check_car_s-car.s)< 30) {
+            if ((car.s < check_car_s) && (check_car_s-car.s)< 20) {
                 // Car is closer to the autonomous vehicle than the previous closest s value
                 if (closest_s_up > check_car_s) {
                     closest_s_up = check_car_s;
@@ -124,8 +131,10 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
             }
         // Identify whether right lane to the current one is free of obstacles in the upper and lower right directions
         } else if  (d > (2+4*lane+2) && d < (2+4*lane+6)) {
-            if (lane<2) {
-                if (abs(d-car.d) < 2.5 && (abs(car.s-check_car_s)<20) && collision_direction==0) {
+            if (lane<2) {//3.25
+                if (abs(d-car.d) < 3.10 && (check_car_s > car.s) && ((check_car_s-car.s)<20) && (collision_direction==0)) {
+                    id_car_collision = id;
+                    d_car_collision = d;
                     collision_direction = 1;
                     cout << "Activating action to avoid collision with vehicle coming from right lane!" << endl;
                     transition_vel = car.speed_ref / 2.0;
@@ -139,9 +148,9 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
                 } 
 
                 // Free in lower right direction. It also tests whether the current car speed is enough to be ahead of the car by 35 Meters or more after 2 seconds.
-                bool condition_prev_cars = ((car.s > check_car_s) && ((car.s-check_car_s) < 10) && ((car.s+car.speed_ref*2.0)  < (check_car_s+check_speed_ms*2.0+35)));
+                bool condition_prev_cars = ((car.s >= check_car_s) && ((car.s-check_car_s) < 30.0) && ((car.s+car.speed_ref*2.0)  < (check_car_s+check_speed_ms*2.0+35.0)));
                 // Free in upper right direction. It also tests whether the current car speed is enough to be behind of the car by 10 Meters or more after 2 seconds.
-                bool condition_ahead_cars = ((car.s < check_car_s) && ((check_car_s-car.s) < 20) && (check_car_s+check_speed_ms*2.0 < car.s+car.speed_ref*2.0+30));  
+                bool condition_ahead_cars = ((car.s <= check_car_s) && ((check_car_s-car.s) < 20.0) && (check_car_s+check_speed_ms*2.0 < car.s+car.speed_ref*2.0+20.0));  
                 
                 if (condition_prev_cars) {
                     if (closest_s_right_down < check_car_s) {
@@ -161,7 +170,9 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
         // Identify whether left lane to the current one is free of obstacles in the upper and lower left directions
         } else if  (d < (2+4*lane-2) && d > (2+4*lane-6)) {
             if (lane>0) {
-                if (abs(d-car.d) < 2.5 && (abs(car.s-check_car_s)<20) && collision_direction==0) {
+                if (abs(d-car.d) < 3.10 && (check_car_s > car.s) && ((check_car_s-car.s)<20) && (collision_direction==0)) {
+                    id_car_collision = id;
+                    d_car_collision = d;
                     collision_direction = -1;
                     cout << "Activating action to avoid collision with vehicle coming from left lane!" << endl;
                     transition_vel = car.speed_ref / 2.0;
@@ -175,9 +186,9 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
                 } 
                 
                 // Free in lower left direction. It also tests whether the current car speed is enough to be ahead of the car by 35 Meters or more after 2 seconds.
-                bool condition_prev_cars = ((car.s > check_car_s) && ((car.s-check_car_s) < 10) &&  ((car.s+car.speed_ref*2.0)  < (check_car_s+check_speed_ms*2.0+35)));
+                bool condition_prev_cars = ((car.s >= check_car_s) && ((car.s-check_car_s) < 30.0) &&  ((car.s+car.speed_ref*2.0)  < (check_car_s+check_speed_ms*2.0+35.0)));
                 // Free in upper left direction. It also tests whether the current car speed is enough to be behind of the car by 10 Meters or more after 2 seconds.
-                bool condition_ahead_cars = ((car.s < check_car_s) && ((check_car_s-car.s) < 30) && (check_car_s+check_speed_ms*2.0 < car.s+car.speed_ref*2.0+30));
+                bool condition_ahead_cars = ((car.s <= check_car_s) && ((check_car_s-car.s) < 20.0) && (check_car_s+check_speed_ms*2.0 < car.s+car.speed_ref*2.0+20.0));
                 
                 if (condition_prev_cars) {
                     if (closest_s_left_down < check_car_s) {
@@ -222,7 +233,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
      */ 
     // If car ahead is too close consider changing lane.
     // Use fastest lane direction as the preferred lane transition direction
-    if ((too_close  && car.speed > 20.0) || (collision_direction!=0 && lane==1)) {
+    if ((too_close  && car.speed > 20.0) || (collision_direction!=0 && abs(car.d-d_car_collision)<2.70)) {
         if (fastest_lane < lane) {
             // If current lane is center or right, left lane is free for lane change and changing_lane flag is false       
             if (lane>0 && left_clear_up && left_clear_down && !changing_lane) {
@@ -272,9 +283,9 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
     if (too_close)
     {
         // If car is 5 meters or less ahead reduce speed with an acceleration of 8m/s2 every 0.02 s
-        if (abs(closest_s_up - car.s) < 15) {
+        if (abs(closest_s_up - car.s) < 10) {
             if (car.speed_ref > 0.0) {
-                car.speed_ref -= 0.16;
+                car.speed_ref -= 0.18;
             }
         // Else reduce speed with an acceleration to reach the speed of car ahead after 4 seconds
         } else {
@@ -282,7 +293,8 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
         }
     // If autonomous vehicle is not too close to cars ahead, speed up
     } else if ((collision_direction!=0) && !changing_lane) {
-        if (car.speed_ref > 0.0 && (abs(closest_s_lanes[lane]-car.s) < 15 || abs(closest_s_lanes[lane+collision_direction]-car.s) < 15)) {
+        if (car.speed_ref > 0.0 && (closest_s_lanes[lane+collision_direction]>car.s) && ((closest_s_lanes[lane+collision_direction]-car.s) < 20) \
+                                && abs(d_car_collision-car.d) < 3.00) {
             cout << "Slowing down instead of lane transition to avoid collision!" << endl;
             car.speed_ref -= 0.16;
         }

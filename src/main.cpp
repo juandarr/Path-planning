@@ -119,7 +119,7 @@ int main() {
           
           // Trajectory generation
           vector<vector<double>> path_vals = planner.trajectoryGeneration(car, previous_path_x, \
-                                                      previous_path_y, map_waypoints_s, map_waypoints_x, map_waypoints_y); //2.75, 5.25 - 6.75 , 9.25
+                                                      previous_path_y, map_waypoints_s, map_waypoints_x, map_waypoints_y); //2.75, 5.25 (6) - 6.75 , 9.25 (10)
 
           
           //vector<vector<double>> path_vals = {{0.0},{0.0}};

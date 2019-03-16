@@ -38,7 +38,7 @@ class PathPlanning {
          * @param changing_lane State of lane transition behavior 
          * @param ref_vel Reference velocity to control car motion in [m/s]
          */ 
-        PathPlanning(): lane(1), changing_lane(false), collision_direction(0), collision_timer(0) {}
+        PathPlanning(): lane(1), changing_lane(false), collision_direction(0), collision_timer(0), d_car_collision(0.0), id_car_collision(0) {}
 
         // Destructor 
         ~PathPlanning() {}
@@ -76,6 +76,8 @@ class PathPlanning {
         // Otherwise the value will be set to 0
         int collision_direction;
         int collision_timer;
+        double d_car_collision;
+        int id_car_collision;
 };
 
 #endif // PATH_PLANNING_H_
