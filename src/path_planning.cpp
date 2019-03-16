@@ -27,48 +27,49 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
     if ((car.d < (2+4*lane+1)) && (car.d > (2+4*lane-1)) && changing_lane) {
         changing_lane = false;
         cout << "Lane transition completed!" << endl;
-        if (collision_direction != 0) {
-            collision_direction = 0;
-            cout << "Avoid collision disabled!" << endl;
-        }
-        
+
     }
 
     /**
-     * These variables are used to store the s value of closest cars in each direction. 
-     * Using these values we can identify the lane availability for different transitions
-     */
-    // Closest vehicle in the upper direction
-    double closest_s_up = std::numeric_limits<double>::max();
-    // Closest vehicle in the upper left direction
-    double closest_s_left_up = std::numeric_limits<double>::max();
-    // Closest vehicle in the lower left direction
-    double closest_s_left_down = std::numeric_limits<double>::min();
-    // Closest vehicle in the upper right direction
-    double closest_s_right_up = std::numeric_limits<double>::max();
-    // Closest vehicle in the lower right direction
-    double closest_s_right_down = std::numeric_limits<double>::min();
-
-    /**
-     *  Variables used to flag the availability of car transition towards upwards,
+     *  Variables used to flag the availability of vehicle transition to 
      *  left or right lane state
      */ 
+     // Vehicle is free of obstacles in the lower (index 0) and upper (index 1) left direction
+    vector<bool> left_clear = {true , true};
+    // Vehicle is free of obstacles in the lower (index 0) and upper (index 1) right direction
+    vector<bool> right_clear = {true , true};
+    
+
+    /**
+     *  Variables used to flag potential collision alerts
+     */ 
     // The vehicle ahead is too close
-    bool too_close = false;
-    // Car doesn't have or will have dangerous obstacles in the upper left direction
-    bool left_clear_up = true;
-    // Car doesn't have or will have dangerous obstacles in the lower left direction
-    bool left_clear_down = true;
-    // Car doesn't have or will have dangerous obstacles in the upper right direction
-    bool right_clear_up = true;
-    // Car doesn't have or will have dangerous obstacles in the lower right direction
-    bool right_clear_down = true;
+    bool too_close_up = false;
+     // The vehicle behind is too close
+    bool too_close_down = false;
+     // The vehicle to the left is too close
+    bool too_close_left = false;
+     // The vehicle to the right is too close
+    bool too_close_right = false;
+
 
     // Transition speed when the car ahead is slow and we need to gradually reduce speed
     double transition_vel = car.speed_ref;
     
-    // Vector to store the sa value of closest cars from the s value of the car ahead. The indexes correspond to the respective lane 0:left, 1:center and 2:right
-    vector<double> closest_s_lanes = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
+    // Store the s value of closest cars to vehicle that are ahead. The indexes correspond to the respective lane 0:left, 1:center and 2:right
+    vector<double> closest_s_ahead = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
+    // Store the s value of closest cars to vehicle form behind in each lane. The indexes correspond to the respective lane 0:left, 1:center and 2:right
+    vector<double> closest_s_behind = {std::numeric_limits<double>::min(), std::numeric_limits<double>::min(), std::numeric_limits<double>::min()};
+    
+    // Store the s value of closest cars to vehicle that are ahead. The indexes correspond to the respective lane 0:left, 1:center and 2:right
+    vector<double> closest_speed_ahead = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
+    // Store the s value of closest cars to vehicle form behind in each lane. The indexes correspond to the respective lane 0:left, 1:center and 2:right
+    vector<double> closest_speed_behind = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
+    
+    // Store the s value of closest cars to vehicle that are ahead. The indexes correspond to the respective lane 0:left, 1:center and 2:right
+    vector<double> closest_d_ahead = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
+    // Store the s value of closest cars to vehicle form behind in each lane. The indexes correspond to the respective lane 0:left, 1:center and 2:right
+    vector<double> closest_d_behind = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
 
     // Set current lane as fastest lane
     int fastest_lane = lane;
@@ -84,146 +85,130 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
         // Identifier
         int id = sensor_fusion[i][0];
 
-        // d value of vehicle with index i
-        float d = sensor_fusion[i][6];
-
         // X component of speed for vehicle with index i
         double vx = sensor_fusion[i][3];
         // Y component of speed for vehicle with index i
         double vy = sensor_fusion[i][4];
         // Speed of vehicle with index i
-        double check_speed = sqrt(vx*vx + vy*vy);
+        double speed = sqrt(vx*vx + vy*vy);
         // S position of vehicle with index i
-        double check_car_s = sensor_fusion[i][5];
+        double s = sensor_fusion[i][5];
+        // d value of vehicle with index i
+        float d = sensor_fusion[i][6];
         
-        // Updated s position of car considerin the time step and size of previous path vector 
-        check_car_s += check_speed*0.02*prev_size;
-
-        // Convert vehicle speed from Miles per hour to Meters per Second
-        double check_speed_ms = check_speed*1609.0/3600.0;
+        // Updated s position of car considering the time step and size of previous path vector 
+        s += speed*0.02*prev_size;
 
         /**
-         * Detects closest s car position and difference of d value to the vehicle in each lane. We are interested in the closest cars with an 
-         * s value larger than the s of the autonomous vehicle, in each lane.
+         * Detects closest cars to the autonomous vehicle and their d, speed values in each lane. We are interested in the closest cars 
+         * ahead and behind the autonomous vehicle
          */ 
-        if (car.s < check_car_s && (check_car_s-car.s)<100 && d > 0 && d < 12) {
+        if (abs(s-car.s)<100 && d > 0 && d < 12) {
             int lane_temp = floor(d/4);
-            if (check_car_s < closest_s_lanes[lane_temp]) {
-                closest_s_lanes[lane_temp] = check_car_s;
-                if ((collision_direction != 0) && (lane_temp == (lane-collision_direction)) && (id == id_car_collision)) {
-                    d_car_collision = d;
-                }
-            } 
+            if (car.s < s) {
+                if (s < closest_s_ahead[lane_temp]) {
+                    closest_s_ahead[lane_temp] = s;
+                    closest_d_ahead[lane_temp] = d;
+                    // Convert vehicle speed from Miles per hour to Meters per Second
+                    closest_speed_ahead[lane_temp] = speed*1609.0/3600.0;
+                } 
+            } else {
+                if (s > closest_s_behind[lane_temp]) {
+                    closest_s_behind[lane_temp] = s;
+                    closest_d_behind[lane_temp] = d;
+                    // Convert vehicle speed from Miles per hour to Meters per Second
+                    closest_speed_behind[lane_temp] = speed*1609.0/3600.0;
+                } 
+            }
         }  
 
-        // Identify whether cars ahead in the current lane are too close
-        if (d > (2+4*lane-2) && d < (2+4*lane+2)) {
-            // Car is ahead the autonomous vehicles is the distances is less than 30 Meters
-            if ((car.s < check_car_s) && (check_car_s-car.s)< 20) {
-                // Car is closer to the autonomous vehicle than the previous closest s value
-                if (closest_s_up > check_car_s) {
-                    closest_s_up = check_car_s;
-                    // If car is too close do some action      
-                    too_close = true;
-                    transition_vel = check_speed_ms;
-                    
-                }
-            }
-        // Identify whether right lane to the current one is free of obstacles in the upper and lower right directions
-        } else if  (d > (2+4*lane+2) && d < (2+4*lane+6)) {
-            if (lane<2) {//3.25
-                if (abs(d-car.d) < 3.10 && (check_car_s > car.s) && ((check_car_s-car.s)<20) && (collision_direction==0)) {
-                    id_car_collision = id;
-                    d_car_collision = d;
-                    collision_direction = 1;
-                    cout << "Activating action to avoid collision with vehicle coming from right lane!" << endl;
-                    transition_vel = car.speed_ref / 2.0;
-                } else if (collision_direction!=0) {
-                    collision_timer += 1;
-                    if (collision_timer > 60) {
-                        collision_direction = 0;
-                        cout << "Avoid collision disabled!" << endl;
-                        collision_timer = 0;
-                    }
-                } 
+    }
+    
+    // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
+    if ((closest_s_ahead[lane]-car.s)< 20) {
+        // If car is too close do some action      
+        too_close_up = true;
+        transition_vel = closest_speed_ahead[lane];
+    } 
 
-                // Free in lower right direction. It also tests whether the current car speed is enough to be ahead of the car by 35 Meters or more after 2 seconds.
-                bool condition_prev_cars = ((car.s >= check_car_s) && ((car.s-check_car_s) < 30.0) && ((car.s+car.speed_ref*2.0)  < (check_car_s+check_speed_ms*2.0+35.0)));
-                // Free in upper right direction. It also tests whether the current car speed is enough to be behind of the car by 10 Meters or more after 2 seconds.
-                bool condition_ahead_cars = ((car.s <= check_car_s) && ((check_car_s-car.s) < 20.0) && (check_car_s+check_speed_ms*2.0 < car.s+car.speed_ref*2.0+20.0));  
-                
-                if (condition_prev_cars) {
-                    if (closest_s_right_down < check_car_s) {
-                        // Set availability as false in the lower right direction for right lane transition
-                        right_clear_down = false;
-                        closest_s_right_down = check_car_s;
+    if ((car.s-closest_s_behind[lane])< 20) {
+        too_close_down = true;
+    }
+    
+    vector<int> lane_transition = {-1 , 1};
+
+    // Identify whether right or left lanes are free of obstacles in the upper and lower right/left directions
+    for (unsigned int i = 0; i < lane_transition.size(); ++i) {
+        
+        int new_lane = lane + lane_transition[i];
+        
+        if (new_lane >= 0 && new_lane <=2) {
+            
+            // Free in lower right direction. It also tests whether the current car speed is enough to be ahead of the car by 35 Meters or more after 2 seconds.
+            bool condition_behind_cars = (((car.s-closest_s_behind[new_lane]) < 27.5) && \
+                                        ((car.s+car.speed_ref*2.0)  < (closest_s_behind[new_lane]+closest_speed_behind[new_lane]*2.0+35.0)));
+            
+            // Free in upper right direction. It also tests whether the current car speed is enough to be behind of the car by 10 Meters or more after 2 seconds.
+            bool condition_ahead_cars = (((closest_s_ahead[new_lane]-car.s) < 25.0) && \
+                                        (closest_s_ahead[new_lane]+closest_speed_ahead[new_lane]*2.0 < car.s+car.speed_ref*2.0+30.0));  
+           
+
+            for (unsigned j = 0; j < right_clear.size(); ++j) {
+                if (condition_behind_cars) {
+                    if (lane_transition[i] == -1) {
+                        // Set availability as false for left lane transition in lower left direction
+                        left_clear[0] = false;
+                    } else {
+                        // Set availability as false for right lane transition in lower right direction
+                        right_clear[0] = false;
                     }
                 }
                 if (condition_ahead_cars) {
-                    if (closest_s_right_up > check_car_s) {
-                        // Set availability as false in the upper right direction for right lane transition
-                        right_clear_up = false;
-                        closest_s_right_up = check_car_s;
-                    }
-                }
-            }
-        // Identify whether left lane to the current one is free of obstacles in the upper and lower left directions
-        } else if  (d < (2+4*lane-2) && d > (2+4*lane-6)) {
-            if (lane>0) {
-                if (abs(d-car.d) < 3.10 && (check_car_s > car.s) && ((check_car_s-car.s)<20) && (collision_direction==0)) {
-                    id_car_collision = id;
-                    d_car_collision = d;
-                    collision_direction = -1;
-                    cout << "Activating action to avoid collision with vehicle coming from left lane!" << endl;
-                    transition_vel = car.speed_ref / 2.0;
-                } else if (collision_direction!=0) {
-                    collision_timer += 1;
-                    if (collision_timer > 60) {
-                        collision_direction = 0;
-                        cout << "Avoid collision disabled!" << endl;
-                        collision_timer = 0;
-                    }
-                } 
-                
-                // Free in lower left direction. It also tests whether the current car speed is enough to be ahead of the car by 35 Meters or more after 2 seconds.
-                bool condition_prev_cars = ((car.s >= check_car_s) && ((car.s-check_car_s) < 30.0) &&  ((car.s+car.speed_ref*2.0)  < (check_car_s+check_speed_ms*2.0+35.0)));
-                // Free in upper left direction. It also tests whether the current car speed is enough to be behind of the car by 10 Meters or more after 2 seconds.
-                bool condition_ahead_cars = ((car.s <= check_car_s) && ((check_car_s-car.s) < 20.0) && (check_car_s+check_speed_ms*2.0 < car.s+car.speed_ref*2.0+20.0));
-                
-                if (condition_prev_cars) {
-                    if (closest_s_left_down < check_car_s) {
-                        // Set availability as false in the lower left direction for left lane transition
-                        left_clear_down = false;
-                        closest_s_left_down = check_car_s;
-                    }
-                }
-                if (condition_ahead_cars) {
-                    if (closest_s_left_up > check_car_s) {
-                        // Set availability as false in the upper left direction for left lane transition
-                        left_clear_up = false;
-                        closest_s_left_up = check_car_s;
-                    }
-                }
+                    if (lane_transition[i] == -1) {
+                        // Set availability as false for left lane transition in upper left direction
+                        left_clear[1] = false;
+                    } else {
+                        // Set availability as false for right lane transition in upper right direction
+                        right_clear[1] = false;
+                    }   
+                }    
             }
         }
     }
+    
+    /*
+    if (abs(d-car.d) < 3.10 && (check_car_s > car.s) && ((check_car_s-car.s)<20) && (collision_direction==0)) {
+            id_car_collision = id;
+            d_car_collision = d;
+            collision_direction = 1;
+            cout << "Activating action to avoid collision with vehicle coming from right lane!" << endl;
+            transition_vel = car.speed_ref / 2.0;
+        } else if (collision_direction!=0) {
+            collision_timer += 1;
+            if (collision_timer > 180) {
+                collision_direction = 0;
+                cout << "Avoid collision disabled!" << endl;
+                collision_timer = 0;
+            }
+        } 
+    */
 
     /**
      * Here we define the fastest lane. The fastest lane is the one that is free of cars ahead
      * or the maximum s distance ahead to the autonomous car
      */ 
     // If current lane is free of cars ahead, set that lane as the fastest one
-    if (closest_s_lanes[lane]==std::numeric_limits<double>::max()) {
+    if (closest_s_ahead[lane]==std::numeric_limits<double>::max()) {
         fastest_lane = lane;
     // Else, look for the maximum s distance. 
     } else {
         double s_temp = std::numeric_limits<double>::min();
-        for (unsigned int i = 0; i < closest_s_lanes.size(); ++i) {
-            if (s_temp < closest_s_lanes[i]) {
+        for (unsigned int i = 0; i < closest_s_ahead.size(); ++i) {
+            if (s_temp < closest_s_ahead[i]) {
                 fastest_lane = i;
-                s_temp = closest_s_lanes[i];
+                s_temp = closest_s_ahead[i];
                 // If a lane next to the current lane is free, define it as the fastest one and break the loop
-                if (((i == (lane-1)) || (i == (lane+1))) && (closest_s_lanes[i]==std::numeric_limits<double>::max())) break;
+                if (((i == (lane-1)) || (i == (lane+1))) && (closest_s_ahead[i]==std::numeric_limits<double>::max())) break;
             }
         }
     } 
@@ -233,27 +218,27 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
      */ 
     // If car ahead is too close consider changing lane.
     // Use fastest lane direction as the preferred lane transition direction
-    if ((too_close  && car.speed > 20.0) || (collision_direction!=0 && abs(car.d-d_car_collision)<2.70)) {
+    if ((too_close_up  && car.speed > 20.0)) {
         if (fastest_lane < lane) {
             // If current lane is center or right, left lane is free for lane change and changing_lane flag is false       
-            if (lane>0 && left_clear_up && left_clear_down && !changing_lane) {
+            if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
                 std::cout << "Fastest lane: " << fastest_lane << ", going Left." << std::endl;
                 lane -= 1;
                 changing_lane = true;
             // Else, consider the right lane contraints
-            } else if (lane<2 && right_clear_up && right_clear_down && !changing_lane) {
+            } else if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
                 std::cout << "Fastest lane: " << fastest_lane << ", going Right" << std::endl;
                 lane += 1;
                 changing_lane = true;
             }
         } else {
             // If current lane is center or left, right lane is free for lane change and changing_lane flag is false   
-            if (lane<2 && right_clear_up && right_clear_down && !changing_lane) {
+            if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
                 std::cout << "Fastest lane: " << fastest_lane << ", going Right." << std::endl;
                 lane += 1;
                 changing_lane = true;
             // Else, consider the left lane contraints
-            } else if (lane>0 && left_clear_up && left_clear_down && !changing_lane) {
+            } else if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
                 std::cout << "Fastest lane: " << fastest_lane << ", going Left." << std::endl;
                 lane -= 1;
                 changing_lane = true;
@@ -263,13 +248,13 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
     } else if ((lane != fastest_lane)) {
         // Consider moving in the direction of the fast lane 
         if (fastest_lane < lane) {       
-            if (lane>0 && left_clear_up && left_clear_down && !changing_lane) {
+            if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
                 std::cout << "Fastest lane: " << fastest_lane << ", going Left." << std::endl;
                 lane -= 1;
                 changing_lane = true;
             } 
         } else {
-            if (lane<2 && right_clear_up && right_clear_down && !changing_lane) {
+            if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
                 std::cout << "Fastest lane: " << fastest_lane << ", going Right." << std::endl;
                 lane += 1;
                 changing_lane = true;
@@ -280,24 +265,18 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
     /**
      * Behavior selection: Change speed.  If car ahead is too close reduce the speed, else increase speed
      */ 
-    if (too_close)
+    if (too_close_up)
     {
         // If car is 5 meters or less ahead reduce speed with an acceleration of 8m/s2 every 0.02 s
-        if (abs(closest_s_up - car.s) < 10) {
+        if (abs(closest_s_ahead[lane] - car.s) < 10) {
             if (car.speed_ref > 0.0) {
                 car.speed_ref -= 0.18;
             }
         // Else reduce speed with an acceleration to reach the speed of car ahead after 4 seconds
         } else {
-            car.speed_ref -= ((car.speed_ref - transition_vel)*0.02/2.0);
+            car.speed_ref -= ((car.speed_ref - transition_vel)*0.02/4.0);
         }
     // If autonomous vehicle is not too close to cars ahead, speed up
-    } else if ((collision_direction!=0) && !changing_lane) {
-        if (car.speed_ref > 0.0 && (closest_s_lanes[lane+collision_direction]>car.s) && ((closest_s_lanes[lane+collision_direction]-car.s) < 20) \
-                                && abs(d_car_collision-car.d) < 3.00) {
-            cout << "Slowing down instead of lane transition to avoid collision!" << endl;
-            car.speed_ref -= 0.16;
-        }
     } else if (car.speed_ref < 22.12375) {
         car.speed_ref += 0.10;
     }
