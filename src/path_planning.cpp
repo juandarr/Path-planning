@@ -24,10 +24,9 @@ using nlohmann::json;
 void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_size){
 
     // Check if the car is in lane transition state and set the state false if the car is inside the expected new lane
-    if ((car.d < (2+4*lane+1)) && (car.d > (2+4*lane-1)) && changing_lane) {
+    if ((car.d > (2+4*lane-1)) && (car.d < (2+4*lane+1)) &&  changing_lane) {
         changing_lane = false;
         cout << "Lane transition completed!" << endl;
-
     }
 
     /**
@@ -125,6 +124,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
         too_close[0] = true;
     }
 
+    
     for (unsigned int i = 0; i < lane_transition.size(); ++i) {
 
         int adjacent_lane = lane + lane_transition[i];
@@ -186,6 +186,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
             }
         }    
     }
+    
     
     
 
