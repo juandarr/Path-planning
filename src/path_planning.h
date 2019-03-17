@@ -39,7 +39,7 @@ class PathPlanning {
          * @param ref_vel Reference velocity to control car motion in [m/s]
          */ 
         PathPlanning(): lane(1), changing_lane(false) , too_close({false, false}), too_close_left({false, false}), too_close_right({false, false}), \
-                        time_in_alert_left(0), time_in_alert_right(0) {}
+                        time_void_alert_left(0), time_void_alert_right(0), urgent_action(false) {}
 
         // Destructor 
         ~PathPlanning() {}
@@ -87,8 +87,12 @@ class PathPlanning {
         vector<double> collision_data_left;
         // Collision d gap data from vehicles approaching from the right lane 
         vector<double> collision_data_right;
-        int time_in_alert_left;
-        int time_in_alert_right;
+        // Step time counter counting the steps when the alert is set but the alert condition is not met anymore. Left lane.
+        int time_void_alert_left;
+        // Step time counter counting the steps when the alert is set but the alert condition is not met anymore. Right lane. 
+        int time_void_alert_right;
+        // Flag set when an urgent action is required due to car coming in a collision direction towards the autonomous vehicle 
+        bool urgent_action;
         
 };
 

@@ -108,7 +108,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
         }  
 
     }
-    
+    // Lane transition possible directions: -1 to the left, +1 to the right
     vector<int> lane_transition = {-1 , 1};
 
     // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
@@ -124,73 +124,99 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
         too_close[0] = true;
     }
 
-    
-    for (unsigned int i = 0; i < lane_transition.size(); ++i) {
+    /** Collision avoidance watcher
+     * This portion of code watches for vehicles at the upper left and right lanes to see whether they are getting too close to the current lane 
+     * 0f the autonomous vehicle. If this is the case and the car is closer than 30 meters and urgent action flag will be set asking for the vehicle
+     * to slow down or change its current lane. Note: Currently this function just watches the events, doesn't take any action
+     * TODO: Take action when the urgent action flag is set
+     */ 
+    if (!changing_lane) {
+        double slope_right = 0.0;
+        double slope_left = 0.0;
 
-        int adjacent_lane = lane + lane_transition[i];
+        for (unsigned int i = 0; i < lane_transition.size(); ++i) {
 
-        if (adjacent_lane >= 0 && adjacent_lane <=2) {
-            // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
-            if ((closest_s_ahead[adjacent_lane]-car.s)< 30) { //20
-                // If car is too close do some action      
-                if (abs(car.d-closest_d_ahead[adjacent_lane]) < 3.0) {
-                    
-                    if (lane_transition[i]==1) {
-                        collision_data_right.push_back((abs(car.d-closest_d_ahead[adjacent_lane])));
-                        cout << "Slope of d value trend right lane: " << slope(collision_data_right) << endl;
-                        time_in_alert_right = 0;
-                        if (!too_close_right[1] ) {
-                            too_close_right[1] = true;
-                            time_in_alert_right = 0;
-                            cout << "Vehicle too close to car in the upper right lane direction." << endl;
+            int adjacent_lane = lane + lane_transition[i];
+
+            if (adjacent_lane >= 0 && adjacent_lane <=2) {
+                // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
+                if ((closest_s_ahead[adjacent_lane]-car.s)< 30) { //20
+                    // If car is too close do some action      
+                    if (abs(car.d-closest_d_ahead[adjacent_lane]) < 3.0) {
+                        
+                        if (lane_transition[i]==1) {
+                            collision_data_right.push_back((abs(car.d-closest_d_ahead[adjacent_lane])));
+                            if (collision_data_right.size() > 1) {
+                                slope_right = slope(collision_data_right);
+                                cout << "Rate of change of diff_d at _upper right lane direction_: " << slope_right << endl;
+                                if (slope_right < -0.05) {
+                                    cout << "\nWarning: vehicle quickly approaching from upper right lane.\nActivating urgent flag!\n" << endl;
+                                    urgent_action = true;
+                                }
+                            }
+                            time_void_alert_right = 0;
+                            if (!too_close_right[1] ) {
+                                too_close_right[1] = true;
+                                time_void_alert_right = 0;
+                                cout << "Alert: Car too close at _upper right lane direction_" << endl;
+                            }
+                        } else {
+                            collision_data_left.push_back((abs(car.d-closest_d_ahead[adjacent_lane])));
+                            if (collision_data_left.size() > 1) {
+                                slope_left = slope(collision_data_left);
+                                cout << "Rate of change of diff_d at _upper left lane direction_: " << slope_left << endl;
+                                if (slope_left < -0.05) {
+                                    cout << "\nWarning: vehicle quickly approaching from upper left lane.\nActivating urgent flag!\n" << endl;
+                                    urgent_action = true;
+                                }
+                            }
+                            time_void_alert_left = 0;
+                            if (!too_close_left[1]) {
+                                too_close_left[1] = true;
+                                time_void_alert_left = 0;
+                                cout << "Alert: Car too close at _upper left lane direction_" << endl;
+                            }
                         }
                     } else {
-                        collision_data_left.push_back((abs(car.d-closest_d_ahead[adjacent_lane])));
-                        cout << "Slope of d value trend left lane: " << slope(collision_data_left) << endl;
-                        time_in_alert_left = 0;
-                        if (!too_close_left[1]) {
-                            too_close_left[1] = true;
-                            time_in_alert_left = 0;
-                            cout << "Vehicle too close to car in the upper left lane direction." << endl;
+                        if (lane_transition[i]==1 && too_close_right[1]) {
+                            time_void_alert_right += 1;
+                            if (time_void_alert_right>100) {
+                                too_close_right[1]= false;
+                                collision_data_right = {};
+                                cout << "False positive alert disabled _upper right lane direction_" << endl;
+                            }
+                        } else if (lane_transition[i]==-1 && too_close_left[1]) {
+                            time_void_alert_left += 1;
+                            if (time_void_alert_left > 100) {
+                                too_close_left[1] = false;
+                                collision_data_left = {};
+                                cout << "False positive alert disabled _upper left lane direction_" << endl;
+                            }
                         }
                     }
                 } else {
+                    
                     if (lane_transition[i]==1 && too_close_right[1]) {
-                        time_in_alert_right += 1;
-                        if (time_in_alert_right>100) {
-                            too_close_right[1]= false;
-                            collision_data_right = {};
-                            cout << "False positive disabled: alert for upper right lane direction." << endl;
-                        }
-                    } else if (lane_transition[i]==-1 && too_close_left[1]) {
-                        time_in_alert_left += 1;
-                        if (time_in_alert_left > 100) {
-                            too_close_left[1] = false;
-                            collision_data_left = {};
-                            cout << "False positive disabled: alert for upper left lane direction." << endl;
-                        }
+                        too_close_right[1]= false;
+                        collision_data_right = {};
+                        cout << "Alert disabled _upper right lane direction_" << endl;
+                    } else if (lane_transition[i]==-1 && too_close_left[1])  {
+                        too_close_left[1] = false;
+                        collision_data_left = {};
+                        cout << "Alert disabled _upper left lane direction_" << endl;
                     }
+                    
                 }
-            } else {
-                
-                if (lane_transition[i]==1 && too_close_right[1]) {
-                    too_close_right[1]= false;
-                    collision_data_right = {};
-                    cout << "Stopped vehicle alert for upper right lane direction." << endl;
-                } else if (lane_transition[i]==-1 && too_close_left[1])  {
-                    too_close_left[1] = false;
-                    collision_data_left = {};
-                    cout << "Stopped vehicle alert for upper left lane direction." << endl;
-                }
-                
-            }
-        }    
+            }    
+        }
     }
     
     
     
 
-    // Identify whether right or left lanes are free of obstacles in the upper and lower right/left directions
+    /** Identify whether right or left lanes are free of obstacles in the upper and lower right/left directions.
+     * This step is fundamental to then decide if a change of lane should be performed
+     */ 
     for (unsigned int i = 0; i < lane_transition.size(); ++i) {
         
         int new_lane = lane + lane_transition[i];
@@ -228,23 +254,6 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
             }
         }
     }
-    
-    /*
-    if (abs(d-car.d) < 3.10 && (check_car_s > car.s) && ((check_car_s-car.s)<20) && (collision_direction==0)) {
-            id_car_collision = id;
-            d_car_collision = d;
-            collision_direction = 1;
-            cout << "Activating action to avoid collision with vehicle coming from right lane!" << endl;
-            target_speed = car.speed_ref / 2.0;
-        } else if (collision_direction!=0) {
-            collision_timer += 1;
-            if (collision_timer > 180) {
-                collision_direction = 0;
-                cout << "Avoid collision disabled!" << endl;
-                collision_timer = 0;
-            }
-        } 
-    */
 
     /**
      * Here we define the fastest lane. The fastest lane is the one that is free of cars ahead
