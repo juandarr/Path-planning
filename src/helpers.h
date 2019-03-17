@@ -14,6 +14,22 @@ using std::vector;
 //   or vice versa
 //
 
+// Obtain slope from a set of values
+double slope(const vector<double> &y) {
+    const auto n    = y.size();
+    vector<double> x;
+    for (unsigned int i = 0; i < n; ++i) {
+      x.push_back(double(i));  
+    }
+    const auto s_x  = std::accumulate(x.begin(), x.end(), 0.0);
+    const auto s_y  = std::accumulate(y.begin(), y.end(), 0.0);
+    const auto s_xx = std::inner_product(x.begin(), x.end(), x.begin(), 0.0);
+    const auto s_xy = std::inner_product(x.begin(), x.end(), y.begin(), 0.0);
+    const auto a    = (n * s_xy - s_x * s_y) / (n * s_xx - s_x * s_x);
+    return a;
+}
+
+
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }

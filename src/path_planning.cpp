@@ -38,23 +38,9 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
     vector<bool> left_clear = {true , true};
     // Vehicle is free of obstacles in the lower (index 0) and upper (index 1) right direction
     vector<bool> right_clear = {true , true};
-    
-
-    /**
-     *  Variables used to flag potential collision alerts
-     */ 
-    // The vehicle ahead is too close
-    bool too_close_up = false;
-     // The vehicle behind is too close
-    bool too_close_down = false;
-     // The vehicle to the left is too close
-    bool too_close_left = false;
-     // The vehicle to the right is too close
-    bool too_close_right = false;
-
 
     // Transition speed when the car ahead is slow and we need to gradually reduce speed
-    double transition_vel = car.speed_ref;
+    double target_speed = car.speed_ref;
     
     // Store the s value of closest cars to vehicle that are ahead. The indexes correspond to the respective lane 0:left, 1:center and 2:right
     vector<double> closest_s_ahead = {std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max()};
@@ -124,18 +110,84 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
 
     }
     
+    vector<int> lane_transition = {-1 , 1};
+
     // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
     if ((closest_s_ahead[lane]-car.s)< 20) {
         // If car is too close do some action      
-        too_close_up = true;
-        transition_vel = closest_speed_ahead[lane];
-    } 
+        too_close[1] = true;
+        target_speed = closest_speed_ahead[lane];
+    } else {
+        too_close[1] = false;
+    }
 
     if ((car.s-closest_s_behind[lane])< 20) {
-        too_close_down = true;
+        too_close[0] = true;
+    }
+
+    for (unsigned int i = 0; i < lane_transition.size(); ++i) {
+
+        int adjacent_lane = lane + lane_transition[i];
+
+        if (adjacent_lane >= 0 && adjacent_lane <=2) {
+            // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
+            if ((closest_s_ahead[adjacent_lane]-car.s)< 30) { //20
+                // If car is too close do some action      
+                if (abs(car.d-closest_d_ahead[adjacent_lane]) < 3.0) {
+                    
+                    if (lane_transition[i]==1) {
+                        collision_data_right.push_back((abs(car.d-closest_d_ahead[adjacent_lane])));
+                        cout << "Slope of d value trend right lane: " << slope(collision_data_right) << endl;
+                        time_in_alert_right = 0;
+                        if (!too_close_right[1] ) {
+                            too_close_right[1] = true;
+                            time_in_alert_right = 0;
+                            cout << "Vehicle too close to car in the upper right lane direction." << endl;
+                        }
+                    } else {
+                        collision_data_left.push_back((abs(car.d-closest_d_ahead[adjacent_lane])));
+                        cout << "Slope of d value trend left lane: " << slope(collision_data_left) << endl;
+                        time_in_alert_left = 0;
+                        if (!too_close_left[1]) {
+                            too_close_left[1] = true;
+                            time_in_alert_left = 0;
+                            cout << "Vehicle too close to car in the upper left lane direction." << endl;
+                        }
+                    }
+                } else {
+                    if (lane_transition[i]==1 && too_close_right[1]) {
+                        time_in_alert_right += 1;
+                        if (time_in_alert_right>100) {
+                            too_close_right[1]= false;
+                            collision_data_right = {};
+                            cout << "False positive disabled: alert for upper right lane direction." << endl;
+                        }
+                    } else if (lane_transition[i]==-1 && too_close_left[1]) {
+                        time_in_alert_left += 1;
+                        if (time_in_alert_left > 100) {
+                            too_close_left[1] = false;
+                            collision_data_left = {};
+                            cout << "False positive disabled: alert for upper left lane direction." << endl;
+                        }
+                    }
+                }
+            } else {
+                
+                if (lane_transition[i]==1 && too_close_right[1]) {
+                    too_close_right[1]= false;
+                    collision_data_right = {};
+                    cout << "Stopped vehicle alert for upper right lane direction." << endl;
+                } else if (lane_transition[i]==-1 && too_close_left[1])  {
+                    too_close_left[1] = false;
+                    collision_data_left = {};
+                    cout << "Stopped vehicle alert for upper left lane direction." << endl;
+                }
+                
+            }
+        }    
     }
     
-    vector<int> lane_transition = {-1 , 1};
+    
 
     // Identify whether right or left lanes are free of obstacles in the upper and lower right/left directions
     for (unsigned int i = 0; i < lane_transition.size(); ++i) {
@@ -182,7 +234,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
             d_car_collision = d;
             collision_direction = 1;
             cout << "Activating action to avoid collision with vehicle coming from right lane!" << endl;
-            transition_vel = car.speed_ref / 2.0;
+            target_speed = car.speed_ref / 2.0;
         } else if (collision_direction!=0) {
             collision_timer += 1;
             if (collision_timer > 180) {
@@ -218,7 +270,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
      */ 
     // If car ahead is too close consider changing lane.
     // Use fastest lane direction as the preferred lane transition direction
-    if ((too_close_up  && car.speed > 20.0)) {
+    if ((too_close[1]  && car.speed > 20.0)) {
         if (fastest_lane < lane) {
             // If current lane is center or right, left lane is free for lane change and changing_lane flag is false       
             if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
@@ -265,7 +317,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
     /**
      * Behavior selection: Change speed.  If car ahead is too close reduce the speed, else increase speed
      */ 
-    if (too_close_up)
+    if (too_close[1])
     {
         // If car is 5 meters or less ahead reduce speed with an acceleration of 8m/s2 every 0.02 s
         if (abs(closest_s_ahead[lane] - car.s) < 10) {
@@ -274,7 +326,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
             }
         // Else reduce speed with an acceleration to reach the speed of car ahead after 4 seconds
         } else {
-            car.speed_ref -= ((car.speed_ref - transition_vel)*0.02/4.0);
+            car.speed_ref -= ((car.speed_ref - target_speed)*0.02/2.5);
         }
     // If autonomous vehicle is not too close to cars ahead, speed up
     } else if (car.speed_ref < 22.12375) {

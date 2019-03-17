@@ -38,7 +38,8 @@ class PathPlanning {
          * @param changing_lane State of lane transition behavior 
          * @param ref_vel Reference velocity to control car motion in [m/s]
          */ 
-        PathPlanning(): lane(1), changing_lane(false) {}
+        PathPlanning(): lane(1), changing_lane(false) , too_close({false, false}), too_close_left({false, false}), too_close_right({false, false}), \
+                        time_in_alert_left(0), time_in_alert_right(0) {}
 
         // Destructor 
         ~PathPlanning() {}
@@ -73,6 +74,21 @@ class PathPlanning {
         // Lane change state. True when the car is changing lane. False when it is not or has completed transition
         bool changing_lane;
         
+        /**
+         *  Variables used to flag potential collision alerts
+         */ 
+        // The vehicle ahead (index 1) or behind (index 0) is too close
+        vector<bool> too_close;
+        // The vehicle to the lower (index 0) or upper (index 1) left is too close
+        vector<bool> too_close_left;
+        // The vehicle to the lower (index 0) or upper (index 1) right is too close
+        vector<bool> too_close_right;
+        // Collision d gap data from vehicles approaching from the left lane 
+        vector<double> collision_data_left;
+        // Collision d gap data from vehicles approaching from the right lane 
+        vector<double> collision_data_right;
+        int time_in_alert_left;
+        int time_in_alert_right;
         
 };
 
