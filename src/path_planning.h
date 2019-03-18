@@ -38,8 +38,7 @@ class PathPlanning {
          * @param changing_lane State of lane transition behavior 
          * @param ref_vel Reference velocity to control car motion in [m/s]
          */ 
-        PathPlanning(): lane(1), changing_lane(false) , too_close({false, false}), too_close_left({false, false}), too_close_right({false, false}), \
-                        time_void_alert_left(0), time_void_alert_right(0), urgent_action(false), counter_left(0.0) , counter_right(0.0) {}
+        PathPlanning(): lane(1), changing_lane(false) , too_close({false, false}) {}
 
         // Destructor 
         ~PathPlanning() {}
@@ -52,7 +51,7 @@ class PathPlanning {
          * @param sensor_fusion Sensor fusion information of other vehicles detected in the environment
          * @param prev_size Size of previous path vector
          */ 
-        void behaviorSelection(Car &car, json &sensor_fusion, int prev_size);
+        void behaviorSelection(Car &car, json &sensor_fusion);
         
         /**
          * trajectoryGeneration Generates a smooth trajectory using the lane selection defined by the behaviorSelection 
@@ -77,24 +76,9 @@ class PathPlanning {
         /**
          *  Variables used to flag potential collision alerts
          */ 
-        // The vehicle ahead (index 1) or behind (index 0) is too close
+        // The vehicle behind (index 0) or ahead (index 1) is too close
         vector<bool> too_close;
-        // The vehicle to the lower (index 0) or upper (index 1) left is too close
-        vector<bool> too_close_left;
-        // The vehicle to the lower (index 0) or upper (index 1) right is too close
-        vector<bool> too_close_right;
-        // Collision d gap data from vehicles approaching from the left lane 
-        vector<double> collision_data_left;
-        // Collision d gap data from vehicles approaching from the right lane 
-        vector<double> collision_data_right;
-        // Step time counter counting the steps when the alert is set but the alert condition is not met anymore. Left lane.
-        int time_void_alert_left;
-        // Step time counter counting the steps when the alert is set but the alert condition is not met anymore. Right lane. 
-        int time_void_alert_right;
-        // Flag set when an urgent action is required due to car coming in a collision direction towards the autonomous vehicle 
-        bool urgent_action;
-        double counter_left;
-        double counter_right;
+        
 };
 
 #endif // PATH_PLANNING_H_

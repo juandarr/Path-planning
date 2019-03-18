@@ -105,18 +105,16 @@ int main() {
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
-
-          int prev_size = previous_path_x.size(); 
           
           // Behavior selection
-          planner.behaviorSelection(car, sensor_fusion, prev_size);
+          planner.behaviorSelection(car, sensor_fusion);
 
-          if (prev_size > 0) {
+          if (previous_path_x.size() > 0) {
             car.s = end_path_s;
           }
           // Trajectory generation
           vector<vector<double>> path_vals = planner.trajectoryGeneration(car, previous_path_x, \
-                                                      previous_path_y, map_waypoints_s, map_waypoints_x, map_waypoints_y); //2.75, 5.25 (6) - 6.75 , 9.25 (10)
+                                                      previous_path_y, map_waypoints_s, map_waypoints_x, map_waypoints_y);
           /* Comment previous line and uncomment this one when you want to use manual mode in simulator.*/ 
           //vector<vector<double>> path_vals = {{0.0},{0.0}};
           json msgJson;
