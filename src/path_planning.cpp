@@ -114,7 +114,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
      * to slow down or change its current lane. Note: Currently this function just watches the events, doesn't take any action
      * TODO: Take action when the urgent action flag is set
      */ 
-    //if (!changing_lane) {
+    if (!changing_lane) {
         double slope_right = 0.0;
         double slope_left = 0.0;
 
@@ -124,7 +124,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
 
             if (adjacent_lane >= 0 && adjacent_lane <=2) {
                 // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
-                if ((closest_s_ahead[adjacent_lane]-car.s)< 30) { //20
+                if ((closest_s_ahead[adjacent_lane]-car.s)< 200) { 
                     // If car is too close do some action      
                     if (abs(car.d-closest_d_ahead[adjacent_lane]) < 3.0) {
                         
@@ -203,9 +203,9 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
                 }
             }    
         }
-    //} 
+    } 
     
-    /** 4. UPDATE SPEED BASED ON VEHICLE DISTANCE LIMITS. Finds whether there are vehicles too close and changes speed **/
+    /** 3. DISTANCE LIMITS FLAGS. Finds whether there are vehicles too close ahead and behind **/
     int closest_ahead_index = lane;
     double temp = std::numeric_limits<double>::max();
     for (unsigned int j = 0; j< closest_d_ahead.size(); ++j)
@@ -220,7 +220,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
     }
 
     if (closest_ahead_index != lane) {
-        cout << "  ! Closest vehicle found at front found at lane index: " << closest_ahead_index << endl;
+        cout << "  ! Vehicle coming to current lane from lane index: " << closest_ahead_index << endl;
     }
 
     // Minimum space gap required to keep a safe distance between autonomous vehicle and car ahead  
@@ -250,7 +250,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
         }
     }
 
-    /** 3. LANE SELECTION: Select next lane to transition or say in the same lane using future vehicle speed */
+    /** 4. LANE SELECTION: Select next lane to transition or say in the same lane using future vehicle speed */
     /** Identify whether right or left lanes are free of obstacles in the upper and lower right/left directions.
      * This step is fundamental to then decide if a change of lane should be performed
      */ 
@@ -264,14 +264,16 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
             // Free in lower right direction. It also tests whether the current car speed is enough to be ahead of the car by 35 Meters or more after 2 seconds.
             // Minimum space gap required to keep a safe distance between autonomous vehicle and car behind  
             double min_safe_distance_behind = std::max((closest_speed_behind[temp_lane]*closest_speed_behind[temp_lane] - car.speed_ref*car.speed_ref),0.0)/(2*9.5)+5;
-            bool condition_behind_cars = (((car.s-closest_s_behind[temp_lane]) < min_safe_distance_behind) || \
-                                        ((car.s-closest_s_behind[temp_lane])+(car.speed_ref-closest_speed_behind[temp_lane])*2.0 < min_safe_distance_behind+5)); 
+            bool condition_behind_cars = !((car.s-closest_s_behind[temp_lane]+(car.speed_ref-closest_speed_behind[temp_lane]-9.5)*2.0) > min_safe_distance_behind);// && \
+                                        (car.speed_ref  > closest_speed_behind[temp_lane]+9.5));
+                                        //((car.s-closest_s_behind[temp_lane])+(car.speed_ref-closest_speed_behind[temp_lane])*2.0 < min_safe_distance_behind+5)); 
             
             // Minimum space gap required to keep a safe distance between autonomous vehicle and car ahead  
             double min_safe_distance_ahead = std::max((car.speed_ref*car.speed_ref - closest_speed_ahead[temp_lane]*closest_speed_ahead[temp_lane]),0.0)/(2*9.5)+5;
             // Free in upper right direction. It also tests whether the current car speed is enough to be behind of the car by 10 Meters or more after 1 seconds.
-            bool condition_ahead_cars = (((closest_s_ahead[temp_lane]-car.s) < min_safe_distance_ahead) || \
-                                        ((closest_s_ahead[temp_lane]-car.s)+(closest_speed_ahead[temp_lane]-car.speed_ref)*2.0 < min_safe_distance_ahead));  
+            bool condition_ahead_cars = !((closest_s_ahead[temp_lane]-car.s+(closest_speed_ahead[temp_lane]+9.5-car.speed_ref)*2.0) > min_safe_distance_ahead);// && \
+                                            (car.speed_ref  < closest_speed_ahead[temp_lane]+9.5));
+                                        //((closest_s_ahead[temp_lane]-car.s)+(closest_speed_ahead[temp_lane]-car.speed_ref)*2.0 < min_safe_distance_ahead));  
             //cout << "minimum safe distance behind [" << temp_lane << "]: " << min_safe_distance_behind <<", d value: " << closest_d_behind[temp_lane]<< endl;
             //cout << "minimum safe distance ahead [" << temp_lane << "]: " << min_safe_distance_ahead <<", d value: " << closest_d_ahead[temp_lane]<< endl;
 
@@ -323,50 +325,53 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion, int prev_siz
      */ 
     // If car ahead is too close consider changing lane.
     // Use fastest lane direction as the preferred lane transition direction
-    if ((too_close[1]  && car.speed > 20.0)) {
-        if (fastest_lane < lane) {
-            // If current lane is center or right, left lane is free for lane change and changing_lane flag is false       
-            if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
-                std::cout << "+ Fastest lane: " << fastest_lane << ", going Left." << std::endl;
-                new_lane = lane - 1;
-                changing_lane = true;
-            // Else, consider the right lane contraints
-            } else if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
-                std::cout << "+ Fastest lane: " << fastest_lane << ", going Right" << std::endl;
-                new_lane = lane + 1;
-                changing_lane = true;
+    if ((lane != fastest_lane) && car.speed > 20.0) {
+        if (too_close[1]) {
+            if (fastest_lane < lane) {
+                // If current lane is center or right, left lane is free for lane change and changing_lane flag is false       
+                if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
+                    std::cout << "+ Fastest lane: " << fastest_lane << ", going Left." << std::endl;
+                    new_lane = lane - 1;
+                    changing_lane = true;
+                // Else, consider the right lane contraints
+                } else if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
+                    std::cout << "+ Fastest lane: " << fastest_lane << ", going Right" << std::endl;
+                    new_lane = lane + 1;
+                    changing_lane = true;
+                }
+            } else {
+                // If current lane is center or left, right lane is free for lane change and changing_lane flag is false   
+                if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
+                    std::cout << "+ Fastest lane: " << fastest_lane << ", going Right." << std::endl;
+                    new_lane = lane + 1;
+                    changing_lane = true;
+                // Else, consider the left lane contraints
+                } else if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
+                    std::cout << "+ Fastest lane: " << fastest_lane << ", going Left." << std::endl;
+                    new_lane = lane - 1;
+                    changing_lane = true;
+                } 
             }
-        } else {
-            // If current lane is center or left, right lane is free for lane change and changing_lane flag is false   
-            if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
-                std::cout << "+ Fastest lane: " << fastest_lane << ", going Right." << std::endl;
-                new_lane = lane + 1;
-                changing_lane = true;
-            // Else, consider the left lane contraints
-            } else if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
-                std::cout << "+ Fastest lane: " << fastest_lane << ", going Left." << std::endl;
-                new_lane = lane - 1;
-                changing_lane = true;
-            } 
-        }
-    // Else, there are not obstacles ahead but the fastest lane is not current lane
-    } else if ((lane != fastest_lane) && car.speed > 20.0) {
-        // Consider moving in the direction of the fast lane 
-        if (fastest_lane < lane) {       
-            if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
-                std::cout << "+ Fastest lane: " << fastest_lane << ", going Left." << std::endl;
-                new_lane = lane - 1;
-                changing_lane = true;
-            } 
-        } else {
-            if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
-                std::cout << "+ Fastest lane: " << fastest_lane << ", going Right." << std::endl;
-                new_lane = lane + 1;
-                changing_lane = true;
-            } 
+        // Else, there are not obstacles ahead but the fastest lane is not current lane
+        } else  {
+            // Consider moving in the direction of the fast lane 
+            if (fastest_lane < lane) {       
+                if (lane>0 && left_clear[1] && left_clear[0] && !changing_lane) {
+                    std::cout << "+ Fastest lane: " << fastest_lane << ", going Left." << std::endl;
+                    new_lane = lane - 1;
+                    changing_lane = true;
+                } 
+            } else {
+                if (lane<2 && right_clear[1] && right_clear[0] && !changing_lane) {
+                    std::cout << "+ Fastest lane: " << fastest_lane << ", going Right." << std::endl;
+                    new_lane = lane + 1;
+                    changing_lane = true;
+                } 
+            }
         }
     }
 
+    /** 5. UPDATE SPEED BASED ON VEHICLE DISTANCE LIMITS FLAGS. **/
     /**
      * Behavior selection: Change speed.  If car ahead is too close reduce the speed, else increase speed
      */ 
