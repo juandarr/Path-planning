@@ -39,7 +39,7 @@ class PathPlanning {
          * @param ref_vel Reference velocity to control car motion in [m/s]
          */ 
         PathPlanning(): lane(1), changing_lane(false) , too_close({false, false}), too_close_left({false, false}), too_close_right({false, false}), \
-                        time_void_alert_left(0), time_void_alert_right(0), urgent_action(false) {}
+                        time_void_alert_left(0), time_void_alert_right(0), urgent_action(false), counter_left(0.0) , counter_right(0.0) {}
 
         // Destructor 
         ~PathPlanning() {}
@@ -93,7 +93,8 @@ class PathPlanning {
         int time_void_alert_right;
         // Flag set when an urgent action is required due to car coming in a collision direction towards the autonomous vehicle 
         bool urgent_action;
-        
+        double counter_left;
+        double counter_right;
 };
 
 #endif // PATH_PLANNING_H_

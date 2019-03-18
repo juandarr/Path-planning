@@ -19,7 +19,7 @@ double slope(const vector<double> &y) {
     const auto n    = y.size();
     vector<double> x;
     for (unsigned int i = 0; i < n; ++i) {
-      x.push_back(i*0.02);  
+      x.push_back(double(i)*0.002);  
     }
     const auto s_x  = std::accumulate(x.begin(), x.end(), 0.0);
     const auto s_y  = std::accumulate(y.begin(), y.end(), 0.0);

@@ -108,15 +108,12 @@ int main() {
 
           int prev_size = previous_path_x.size(); 
           
-          if (prev_size > 0) {
-            car.s = end_path_s;
-          }
-
           // Behavior selection
           planner.behaviorSelection(car, sensor_fusion, prev_size);
 
-
-          
+          if (prev_size > 0) {
+            car.s = end_path_s;
+          }
           // Trajectory generation
           vector<vector<double>> path_vals = planner.trajectoryGeneration(car, previous_path_x, \
                                                       previous_path_y, map_waypoints_s, map_waypoints_x, map_waypoints_y); //2.75, 5.25 (6) - 6.75 , 9.25 (10)
