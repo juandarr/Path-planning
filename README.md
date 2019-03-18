@@ -65,7 +65,7 @@ The method `trajectoryGeneration` in the class ```PathPlanning``` generates the 
 
 3. We create a new trajectory vector including all the points from the previous trajectory. Then we populate the new trajectory vector with values obtained from the spline until we reach a maximum of 50 points. The idea is to distribute these points in an x range from 0 to 32 Meters and y range from 0 to the value provided by `spline(32.0)` Meters. To reach the expected speed, we distribute these points according to the number `double N = target_distance / (0.02*car.speed_ref)` with the goal of evenly divide `target_distance` in N points. `target_distance` is the distance provided by the `x` range 32 Meters and `y` range `spline(32.0)`. Before adding each new value obtained from the spline to the new trajectory we need to transform them again to the global coordinate system. We do this by first rotating the points by minus car yaw (opposite angle), then we translate by adding the car `x` and `y` to each new spline point. And that's it, an optimal trajectory is ready to command the vehicle motion!  
 
-# Instructions
+# 2. Instructions
 
 This project involves the Udacity Self Driving Car  Term 3 Simulator which can be downloaded [here](https://github.com/udacity/self-driving-car-sim/releases/tag/T3_v1.2). The simulator serves as a visual output of the logic performed in the repository program, which creates a server that uses the simulation as a front end. 
 
@@ -103,7 +103,7 @@ After running the program, open the siumulator. You should get a `connected` mes
     git checkout e94b6e1
     ```
 
-# Project definition
+# 3. Project details
 
 The goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. We are provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
 
@@ -146,7 +146,7 @@ Here is the data provided from the Simulator to the C++ Program
 
 ["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
 
-## Details
+## Additional details
 
 1. The car uses a perfect controller and will visit every (x,y) point it recieves in the list every .02 seconds. The units for the (x,y) points are in meters and the spacing of the points determines the speed of the car. The vector going from a point to the next point in the list dictates the angle of the car. Acceleration both in the tangential and normal directions is measured along with the jerk, the rate of change of total Acceleration. The (x,y) point paths that the planner recieves should not have a total acceleration that goes over 10 m/s^2, also the jerk should not go over 50 m/s^3. (NOTE: As this is BETA, these requirements might change. Also currently jerk is over a .02 second interval, it would probably be better to average total acceleration over 1 second and measure jerk from that.
 
