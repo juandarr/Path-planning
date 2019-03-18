@@ -3,7 +3,7 @@
 # 1. Path planning algorithm 
 
 The algorithm described here allows the control of an autonomous vehicle in a high-speed highway by enabling behavior selection and trajectory generation features. A class was created
-containing the main properties (current `lane`, `changing lane` status and `too_close`, for vehicles behind/ahead) and methods required to reach the challenges described in the project rubric. For instance:
+containing the main properties (current `lane`, `changing lane` status, `too_close`, `too_close_left` and `too_close_right`) and methods required to reach the challenges described in the project rubric. For instance:
 
 - The car drives according to a speed limit of 50 miles per hour.
 - Max acceleration and jerk don't exceed 10 m/s2 and 10 m/s3 respectively.
