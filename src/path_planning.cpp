@@ -63,8 +63,8 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
         double vx = sensor_fusion[i][3];
         // Y component of speed for vehicle with index i
         double vy = sensor_fusion[i][4];
-        // Speed of vehicle with index i
-        double speed = sqrt(vx*vx + vy*vy);
+        // Speed of vehicle with index i converted from MPH to m/s
+        double speed = sqrt(vx*vx + vy*vy)*(1609.0/3600.0);
         // S position of vehicle with index i
         double s = sensor_fusion[i][5];
         // d value of vehicle with index i
@@ -80,21 +80,20 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
                 if (s < closest_s_ahead[lane_temp]) {
                     closest_s_ahead[lane_temp] = s;
                     closest_d_ahead[lane_temp] = d;
-                    // Convert vehicle speed from Miles per hour to Meters per Second
-                    closest_speed_ahead[lane_temp] = speed*1609.0/3600.0;
+                    closest_speed_ahead[lane_temp] = speed;
                 } 
             } else {
                 if (s > closest_s_behind[lane_temp]) {
                     closest_s_behind[lane_temp] = s;
                     closest_d_behind[lane_temp] = d;
-                    // Convert vehicle speed from Miles per hour to Meters per Second
-                    closest_speed_behind[lane_temp] = speed*1609.0/3600.0;
+                    closest_speed_behind[lane_temp] = speed;
                 } 
             }
         }  
     }
     
     /** 2. DISTANCE LIMITS FLAGS. Finds whether there are vehicles too close ahead and behind **/
+    // Lane of car closest to the autonomous vehicle when considering an extended d range 
     int closest_ahead_index = lane;
     double temp = std::numeric_limits<double>::max();
     for (unsigned int j = 0; j< closest_d_ahead.size(); ++j)
@@ -112,19 +111,20 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
         cout << "  ! Vehicle coming to current lane from lane index: " << closest_ahead_index << endl;
     }
 
-    // Minimum space gap required to keep a safe distance between autonomous vehicle and car ahead  
+    // Minimum space gap required to keep a safe distance between autonomous vehicle and car ahead
+    // 5 meters is set as the minimum distance for the case when car speeds are the same.  
     double min_safe_distance_ahead = std::max((car.speed_ref*car.speed_ref - closest_speed_ahead[closest_ahead_index]*closest_speed_ahead[closest_ahead_index]),0.0)/(2*9.5)+5;
 
     // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
     if ((closest_s_ahead[closest_ahead_index]-car.s) < min_safe_distance_ahead) {
         // If car is too close do some action    
         if (!too_close[1]) too_close[1] = true;
-        //cout << "Close distance variables-> diff: " << (closest_s_ahead[lane]-car.s) << " , closest: " << closest_s_ahead[lane] << " , car: " << car.s << endl; 
     } else {
         if (too_close[1]) too_close[1] = false;
     }
 
-    // Minimum space gap required to keep a safe distance between autonomous vehicle and car behind  
+    // Minimum space gap required to keep a safe distance between autonomous vehicle and car behind 
+    // 5 meters is set as the minimum distance for the case when car speeds are the same.   
     double min_safe_distance_behind = std::max((closest_speed_behind[lane]*closest_speed_behind[lane] - car.speed_ref*car.speed_ref),0.0)/(2*9.5)+5;
 
     if ((car.s - closest_s_behind[lane]) < min_safe_distance_behind) {
@@ -143,14 +143,8 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
     /** Identify whether right or left lanes are free of obstacles in the upper and lower right/left directions.
      * This step is fundamental to then decide if a change of lane should be performed
      */ 
-
     // Lane transition possible directions: -1 to the left, +1 to the right
     vector<int> lane_transition = {-1 , 1};
-
-    // Too close at left and right lanes flag initialization
-    too_close_left = {false, false};
-    too_close_right = {false, false};
-
     for (unsigned int i = 0; i < lane_transition.size(); ++i) {
         
         int temp_lane = lane + lane_transition[i];
@@ -170,21 +164,38 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
 
             if (blocked_behind) {
                 if (lane_transition[i]==1) {
-                    // Set availability as false for right lane transition in lower right direction
+                    // Set too close as true for right lane transition in lower right direction
                     too_close_right[0] = true;
                 } else {
-                    // Set availability as false for left lane transition in lower left direction
+                    // Set too close as true for left lane transition in lower left direction
                     too_close_left[0] = true;
                 }
+            } else {
+                if (lane_transition[i]==1) {
+                    // Set too close as false for right lane transition in lower right direction
+                    too_close_right[0] = false;
+                } else {
+                    // Set too close as false for left lane transition in lower left direction
+                    too_close_left[0] = false;
+                }
             }
+
             if (blocked_ahead) {
                 if (lane_transition[i]==1) {
-                    // Set availability as false for right lane transition in upper right direction
+                    // Set too close as true for right lane transition in upper right direction
                     too_close_right[1] = true;
                 } else {
-                    // Set availability as false for left lane transition in upper left direction
+                    // Set too close as true for left lane transition in upper left direction
                     too_close_left[1] = true;
                 }   
+            } else {
+                if (lane_transition[i]==1) {
+                    // Set too close as false for right lane transition in upper right direction
+                    too_close_right[1] = false;
+                } else {
+                    // Set too close as false for left lane transition in upper left direction
+                    too_close_left[1] = false;
+                }                   
             }      
         }
     }
@@ -261,8 +272,11 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
     /** 4. UPDATE SPEED BASED ON VEHICLE DISTANCE LIMITS FLAGS. **/
     /**
      * Behavior selection: Change speed.  If car ahead is too close reduce the speed, else increase speed
-     */ 
-    if ((too_close[1]) && car.speed_ref > 0)
+     */
+    // Max speed of vehicle in m/s 
+    double max_speed_ms = 49.5*1609.0/3600.0;
+
+    if ((too_close[1]) && car.speed_ref > 0 && car.speed_ref <= (max_speed_ms-0.19))
     {
         // If car is 5 meters or less ahead reduce speed with an acceleration of 9.5m/s2
         if ((closest_s_ahead[closest_ahead_index] - car.s) < 5.0) {
@@ -274,11 +288,12 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
             if (target_accel < -9.5) target_accel = -9.5;
             car.speed_ref += target_accel*0.02;
         }
-    // If autonomous vehicle is not too close to cars ahead, speed up
-    } else if (too_close[0] && car.speed_ref <= (49.5*1609.0/3600.0-0.19)) {
+    // If autonomous vehicle is too close to cars behind, speed up
+    } else if (too_close[0] && car.speed_ref <= (max_speed_ms-0.19)) {
         // If car behind is too close increase speed with an acceleration of 9.5m/s2
         car.speed_ref += (9.5*0.02);
-    } else if (car.speed_ref <= (49.5*1609.0/3600.0-0.10)) {
+    // If autonomous vehicle is free behind and ahead, speed up
+    } else if (car.speed_ref <= (max_speed_ms-0.10)) {
         car.speed_ref += (5.0*0.02);
     }
 };
