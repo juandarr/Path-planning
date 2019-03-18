@@ -30,7 +30,7 @@ The conditions at the lower and upper lane directions are defined as follows:
 #### (1) Blocked at lower left/right direction
 It also tests whether the relative speed of vehicles is enough to maintain the minimum safe distance behind after 2 seconds.
 
-``` Python
+```C++
 // Blocked at lower direction
 bool blocked_behind = !((car.s-closest_s_behind[temp_lane]+(car.speed_ref-closest_speed_behind[temp_lane]-9.5)*2.0) > min_safe_distance_behind);
 ```
@@ -38,7 +38,7 @@ bool blocked_behind = !((car.s-closest_s_behind[temp_lane]+(car.speed_ref-closes
 #### (2) Blocked at upper left/right direction 
 It also tests whether the relative speed of vehicles is enough to maintain the minimum safe distance ahead after 2 seconds.
 
-```Python
+```C++
 // Blocked at upper direction
 bool blocked_ahead = !((closest_s_ahead[temp_lane]-car.s+(closest_speed_ahead[temp_lane]+9.5-car.speed_ref)*2.0) > min_safe_distance_ahead);
 ```
@@ -51,7 +51,7 @@ The vehicle is expected to travel at the fastest speed when not being blocked by
 
 ### 1.1.5 Lane transition of adjacent cars
 The algorithm includes logic to detect when cars ahead from adjacent lanes are moving towards the vehicle current lane. In this situation, the vehicle will keep a watch in the d value of this vehicle and when it is getting too close to the current lane will activate the `too_close` ahead (index 1) flag. This will result in the vehicle slowing down to keep the minimum safe distance ahead or changing the lane if conditions 1.1.2 are met. Here is the condition used to detect this state:
-```Python
+```C++
 (closest_d > (4*lane-0.75) && closest_d<(4.75+4*lane))
 ```
 `lane` is the current lane of the autonomous vehicle and `closest_d` the `d` value of the closes vehicle ahead. 
@@ -103,7 +103,7 @@ After running the program, open the siumulator. You should get a `connected` mes
     git checkout e94b6e1
     ```
 
-## Project definition
+# Project definition
 
 The goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. We are provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
 
@@ -158,7 +158,7 @@ A really helpful resource for doing this project and creating smooth trajectorie
 
 ---
 
-## License
+# License
 
 Copyright (c) Udacity and Juan David Rios. All rights reserved.
 
