@@ -74,7 +74,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
          * Detects closest cars to the autonomous vehicle and their d, speed values in each lane. We are interested in the closest cars 
          * ahead and behind the autonomous vehicle
          */ 
-        if (abs(s-car.s)<120 && d > 0 && d < 12) {
+        if (abs(s-car.s)<120.0 && d > 0.0 && d < 12.0) {
             int lane_temp = floor(d/4);
             if (car.s < s) {
                 if (s < closest_s_ahead[lane_temp]) {
@@ -113,7 +113,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
 
     // Minimum space gap required to keep a safe distance between autonomous vehicle and car ahead
     // 5 meters is set as the minimum distance for the case when car speeds are the same.  
-    double min_safe_distance_ahead = std::max((car.speed_ref*car.speed_ref - closest_speed_ahead[closest_ahead_index]*closest_speed_ahead[closest_ahead_index]),0.0)/(2*9.5)+5;
+    double min_safe_distance_ahead = std::max((car.speed_ref*car.speed_ref - closest_speed_ahead[closest_ahead_index]*closest_speed_ahead[closest_ahead_index]),0.0)/(2*9.5)+5.0;
 
     // Car is ahead the autonomous vehicles is the distances is less than 20 Meters
     if ((closest_s_ahead[closest_ahead_index]-car.s) < min_safe_distance_ahead) {
@@ -125,7 +125,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
 
     // Minimum space gap required to keep a safe distance between autonomous vehicle and car behind 
     // 5 meters is set as the minimum distance for the case when car speeds are the same.   
-    double min_safe_distance_behind = std::max((closest_speed_behind[lane]*closest_speed_behind[lane] - car.speed_ref*car.speed_ref),0.0)/(2*9.5)+5;
+    double min_safe_distance_behind = std::max((closest_speed_behind[lane]*closest_speed_behind[lane] - car.speed_ref*car.speed_ref),0.0)/(2*9.5)+5.0;
 
     if ((car.s - closest_s_behind[lane]) < min_safe_distance_behind) {
         if (!too_close[0]) {
@@ -153,12 +153,12 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
             
             
             // Minimum space gap required to keep a safe distance between autonomous vehicle and car behind  
-            double min_safe_distance_behind = std::max((closest_speed_behind[temp_lane]*closest_speed_behind[temp_lane] - car.speed_ref*car.speed_ref),0.0)/(2*9.5)+5;
+            double min_safe_distance_behind = std::max((closest_speed_behind[temp_lane]*closest_speed_behind[temp_lane] - car.speed_ref*car.speed_ref),0.0)/(2*9.5)+5.0;
             // Blocked at lower direction. It also tests whether the relative speeds are enough to mantain minimum safe distance after 2 seconds.
             bool blocked_behind = !((car.s-closest_s_behind[temp_lane]+(car.speed_ref-closest_speed_behind[temp_lane]-9.5)*2.0) > min_safe_distance_behind);
             
             // Minimum space gap required to keep a safe distance between autonomous vehicle and car ahead  
-            double min_safe_distance_ahead = std::max((car.speed_ref*car.speed_ref - closest_speed_ahead[temp_lane]*closest_speed_ahead[temp_lane]),0.0)/(2*9.5)+5;
+            double min_safe_distance_ahead = std::max((car.speed_ref*car.speed_ref - closest_speed_ahead[temp_lane]*closest_speed_ahead[temp_lane]),0.0)/(2*9.5)+5.0;
             // Blocked at upper direction. It also tests whether the relative speeds are enough to mantain minimum safe distance after 2 seconds.
             bool blocked_ahead = !((closest_s_ahead[temp_lane]-car.s+(closest_speed_ahead[temp_lane]+9.5-car.speed_ref)*2.0) > min_safe_distance_ahead);
 
@@ -276,7 +276,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
     // Max speed of vehicle in m/s 
     double max_speed_ms = 49.5*1609.0/3600.0;
 
-    if ((too_close[1]) && car.speed_ref > 0 && car.speed_ref <= (max_speed_ms-0.19))
+    if ((too_close[1]) && car.speed_ref > 0 && car.speed_ref <= (max_speed_ms-9.5*0.02))
     {
         // If car is 5 meters or less ahead reduce speed with an acceleration of 9.5m/s2
         if ((closest_s_ahead[closest_ahead_index] - car.s) < 5.0) {
@@ -289,11 +289,11 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
             car.speed_ref += target_accel*0.02;
         }
     // If autonomous vehicle is too close to cars behind, speed up
-    } else if (too_close[0] && car.speed_ref <= (max_speed_ms-0.19)) {
+    } else if (too_close[0] && car.speed_ref <= (max_speed_ms-9.5*0.02)) {
         // If car behind is too close increase speed with an acceleration of 9.5m/s2
         car.speed_ref += (9.5*0.02);
     // If autonomous vehicle is free behind and ahead, speed up
-    } else if (car.speed_ref <= (max_speed_ms-0.10)) {
+    } else if (car.speed_ref <= (max_speed_ms-5.0*0.02)) {
         car.speed_ref += (5.0*0.02);
     }
 };
