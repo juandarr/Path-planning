@@ -56,7 +56,7 @@ The algorithm includes logic to detect when cars ahead from adjacent lanes are m
 ```
 `lane` is the current lane of the autonomous vehicle and `closest_d` the `d` value of the closest vehicle ahead. 
 
-# 1.2 Trajectory generation
+## 1.2 Trajectory generation
 
 The method `trajectoryGeneration` in the class ```PathPlanning``` generates the best trajectory given the `lane` directive obtained from the behavior selection method. The logic to generate a new trajectory is as follows: 
 1. We define a set of initial points for the new trajectory so we can guarantee a smooth transition. If the previous trajectory has too few points (less than 2), we will use the current x, y, and yaw parameters of the autonomous vehicle and calculate the previous point by subtracting the `cosine` and `sine` of the car yaw from `x` and `y` respectively. When the previous trajectory has more than 2 points we will use the last two points of it as the initial points of the new trajectory. 
