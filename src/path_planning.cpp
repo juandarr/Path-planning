@@ -276,7 +276,7 @@ void PathPlanning::behaviorSelection(Car &car, json &sensor_fusion){
     // Max speed of vehicle in m/s 
     double max_speed_ms = 49.5*1609.0/3600.0;
 
-    if ((too_close[1]) && car.speed_ref > 0 && car.speed_ref <= (max_speed_ms-9.5*0.02))
+    if ((too_close[1]) && (car.speed_ref > 0.0))
     {
         // If car is 5 meters or less ahead reduce speed with an acceleration of 9.5m/s2
         if ((closest_s_ahead[closest_ahead_index] - car.s) < 5.0) {
